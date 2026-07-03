@@ -111,7 +111,9 @@ static NSUInteger CountChars(NSString *s) {
     [self.panel setContentSize:size];
 
     NSPoint mouse = [NSEvent mouseLocation];
-    NSPoint origin = NSMakePoint(mouse.x + 14, mouse.y + 16);
+    // カーソルの下側に出す。上側は「調べる」やアプリの選択ポップアップ
+    // （引用ボタン等）が出る場所なので、覆い隠さないように空けておく
+    NSPoint origin = NSMakePoint(mouse.x + 14, mouse.y - size.height - 22);
     for (NSScreen *screen in [NSScreen screens]) {
         if (NSMouseInRect(mouse, screen.frame, NO)) {
             NSRect f = screen.visibleFrame;
