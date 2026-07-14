@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>転調fav. — コード進行お気に入り帳</title>
+<style>
+  :root {
+    --bg: #12101a;
+    --bg2: #1a1726;
+    --card: #211d31;
+    --card-hover: #272240;
+    --border: #37304f;
+    --text: #ece9f7;
+    --text-dim: #9b93b8;
+    --accent: #b48cff;
+    --accent2: #ff8cc8;
+    --accent-dim: rgba(180, 140, 255, 0.15);
+    --star: #ffd166;
+    --danger: #ff6b7f;
+    --radius: 14px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", system-ui, sans-serif;
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 80px; }
+
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 {
+    font-size: 1.9rem; font-weight: 800;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  header p { color: var(--text-dim); font-size: 0.9rem; margin-top: 4px; }
+
+  /* ------- 追加フォーム ------- */
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 28px;
+  }
+  .format-tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .format-tab {
+    flex: 1; min-width: 140px;
+    padding: 12px 10px;
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-dim);
+    font-size: 0.95rem; font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .format-tab:hover { border-color: var(--accent); color: var(--text); }
+  .format-tab.active {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+  .format-tab .sub { display: block; font-size: 0.72rem; font-weight: 400; margin-top: 2px; }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-bottom: 5px; font-weight: 600; }
+  input[type="text"], input[type="url"], textarea, select {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 60px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row .field { flex: 1; min-width: 130px; }
+
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 26px;
+    text-align: center;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 14px;
+  }
+  .dropzone:hover, .dropzone.dragover { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+  .dropzone.has-file { border-style: solid; border-color: var(--accent); color: var(--text); }
+
+  /* 転調ポイント */
+  .mod-points { margin-bottom: 14px; }
+  .mod-point {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+  .mod-point input[type="text"] { background: var(--bg2); }
+  .mod-point select { background: var(--bg2); width: auto; }
+  .mod-point .time-in { width: 76px; text-align: center; }
+  .mod-point .arrow { color: var(--accent2); font-weight: 700; }
+  .mod-point .prog-in { flex: 1; min-width: 160px; }
+  .mod-point .del-mod {
+    background: none; border: none; color: var(--text-dim);
+    cursor: pointer; font-size: 1.1rem; padding: 2px 6px;
+  }
+  .mod-point .del-mod:hover { color: var(--danger); }
+
+  .btn {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 10px;
+    color: #16121f;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 12px 24px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:hover { opacity: 0.9; }
+  .btn:active { transform: scale(0.98); }
+  .btn-ghost {
+    background: none;
+    border: 1px dashed var(--border);
+    color: var(--text-dim);
+    font-weight: 600;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ------- 検索・フィルタ ------- */
+  .toolbar { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+  .toolbar input[type="text"] { flex: 1; min-width: 180px; }
+  .toolbar select { width: auto; }
+  .chip-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-dim);
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: inherit;
+  }
+  .chip-btn.active { border-color: var(--star); color: var(--star); }
+
+  /* ------- カード ------- */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 14px;
+    transition: background 0.15s;
+  }
+  .card:hover { background: var(--card-hover); }
+  .card-head { display: flex; align-items: flex-start; gap: 10px; }
+  .card-title { flex: 1; }
+  .card-title h3 { font-size: 1.1rem; font-weight: 700; }
+  .card-title .artist { color: var(--text-dim); font-size: 0.85rem; }
+  .badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 2px 10px;
+    border-radius: 20px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .star-btn {
+    background: none; border: none; font-size: 1.35rem; cursor: pointer;
+    color: var(--border); transition: color 0.15s, transform 0.1s; line-height: 1;
+  }
+  .star-btn.on { color: var(--star); }
+  .star-btn:hover { transform: scale(1.15); }
+  .del-btn {
+    background: none; border: none; font-size: 1rem; cursor: pointer;
+    color: var(--text-dim); line-height: 1; padding: 4px;
+  }
+  .del-btn:hover { color: var(--danger); }
+
+  .mod-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .mod-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--bg2);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.92rem;
+  }
+  .mod-row .time-jump {
+    background: var(--accent-dim);
+    border: none;
+    color: var(--accent);
+    border-radius: 6px;
+    padding: 2px 10px;
+    cursor: pointer;
+    font-family: ui-monospace, monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .mod-row .time-jump:hover { background: var(--accent); color: #16121f; }
+  .mod-row .keys { font-weight: 700; }
+  .mod-row .keys .to { color: var(--accent2); }
+  .mod-row .prog { color: var(--text-dim); font-family: ui-monospace, monospace; font-size: 0.85rem; }
+
+  .card .memo { margin-top: 10px; color: var(--text-dim); font-size: 0.88rem; white-space: pre-wrap; }
+  .card .tags { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag {
+    font-size: 0.75rem; color: var(--accent2);
+    background: rgba(255, 140, 200, 0.12);
+    padding: 2px 10px; border-radius: 20px;
+    cursor: pointer;
+  }
+
+  .embed { margin-top: 12px; border-radius: 10px; overflow: hidden; }
+  .embed iframe { width: 100%; border: none; display: block; }
+  .embed.yt iframe { aspect-ratio: 16 / 9; height: auto; }
+  audio { width: 100%; margin-top: 12px; }
+  .link-out { margin-top: 10px; font-size: 0.88rem; }
+  .link-out a { color: var(--accent); word-break: break-all; }
+
+  .empty { text-align: center; color: var(--text-dim); padding: 50px 20px; }
+  .empty .big { font-size: 2.5rem; margin-bottom: 8px; }
+
+  .io-row { display: flex; gap: 8px; justify-content: center; margin-top: 30px; }
+  .hidden { display: none !important; }
+
+  footer { text-align: center; color: var(--text-dim); font-size: 0.75rem; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>♪ 転調fav.</h1>
+    <p>好きな転調・コード進行をコレクションするアプリ</p>
+  </header>
+
+  <!-- ============ 追加フォーム ============ -->
+  <section class="panel">
+    <div class="format-tabs" role="tablist">
+      <button type="button" class="format-tab active" data-format="link">🔗 曲リンク<span class="sub">YouTube / Spotify / URL</span></button>
+      <button type="button" class="format-tab" data-format="mp3">🎧 MP3ファイル<span class="sub">音声ファイルを保存・再生</span></button>
+      <button type="button" class="format-tab" data-format="text">✍️ 手入力<span class="sub">曲名とコードだけメモ</span></button>
+    </div>
+
+    <form id="add-form">
+      <!-- リンク形式 -->
+      <div class="field" id="link-field">
+        <label>曲のURL(YouTube・Spotifyは埋め込み再生できます)</label>
+        <input type="url" id="in-url" placeholder="https://www.youtube.com/watch?v=...">
+      </div>
+
+      <!-- MP3形式 -->
+      <div id="mp3-field" class="hidden">
+        <div class="dropzone" id="dropzone">
+          🎵 ここにMP3をドラッグ&ドロップ、またはクリックして選択
+        </div>
+        <input type="file" id="in-file" accept="audio/*" class="hidden">
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>曲名</label>
+          <input type="text" id="in-title" placeholder="曲名">
+        </div>
+        <div class="field">
+          <label>アーティスト</label>
+          <input type="text" id="in-artist" placeholder="アーティスト名">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>転調ポイント(＋で複数追加できます)</label>
+        <div class="mod-points" id="mod-points"></div>
+        <button type="button" class="btn btn-ghost" id="add-mod">＋ 転調ポイントを追加</button>
+      </div>
+
+      <div class="field">
+        <label>メモ(この転調のどこが好きか、など)</label>
+        <textarea id="in-memo" placeholder="サビ前の半音上げがエモい…など"></textarea>
+      </div>
+
+      <div class="field">
+        <label>タグ(カンマ区切り)</label>
+        <input type="text" id="in-tags" placeholder="半音上げ, サビ転調, エモい">
+      </div>
+
+      <button type="submit" class="btn" style="width:100%">★ fav.に追加</button>
+    </form>
+  </section>
+
+  <!-- ============ 一覧 ============ -->
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="🔍 曲名・アーティスト・タグ・メモで検索">
+    <select id="filter-format">
+      <option value="">すべての形式</option>
+      <option value="link">🔗 リンク</option>
+      <option value="mp3">🎧 MP3</option>
+      <option value="text">✍️ 手入力</option>
+    </select>
+    <select id="filter-key">
+      <option value="">すべてのキー</option>
+    </select>
+    <button type="button" class="chip-btn" id="filter-star">★ お気に入りのみ</button>
+  </div>
+
+  <div id="list"></div>
+
+  <div class="io-row">
+    <button type="button" class="btn btn-ghost" id="export-btn">📤 JSONエクスポート</button>
+    <button type="button" class="btn btn-ghost" id="import-btn">📥 JSONインポート</button>
+    <input type="file" id="import-file" accept="application/json" class="hidden">
+  </div>
+  <footer>データはこのブラウザの中(localStorage / IndexedDB)に保存されます。MP3はエクスポートに含まれません。</footer>
+</div>
+
+<script>
+"use strict";
+
+/* ============ 定数 ============ */
+const KEYS = ["?",
+  "C", "C#/Db", "D", "D#/Eb", "E", "F", "F#/Gb", "G", "G#/Ab", "A", "A#/Bb", "B",
+  "Cm", "C#m/Dbm", "Dm", "D#m/Ebm", "Em", "Fm", "F#m/Gbm", "Gm", "G#m/Abm", "Am", "A#m/Bbm", "Bm"
+];
+const LS_KEY = "modulation-favs-v1";
+
+/* ============ IndexedDB(MP3保存用) ============ */
+const dbPromise = new Promise((resolve, reject) => {
+  const req = indexedDB.open("modulation-favs", 1);
+  req.onupgradeneeded = () => req.result.createObjectStore("audio");
+  req.onsuccess = () => resolve(req.result);
+  req.onerror = () => reject(req.error);
+});
+
+async function audioPut(id, blob) {
+  const db = await dbPromise;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("audio", "readwrite");
+    tx.objectStore("audio").put(blob, id);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function audioGet(id) {
+  const db = await dbPromise;
+  return new Promise((resolve, reject) => {
+    const req = db.transaction("audio").objectStore("audio").get(id);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function audioDelete(id) {
+  const db = await dbPromise;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("audio", "readwrite");
+    tx.objectStore("audio").delete(id);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/* ============ 状態 ============ */
+let entries = [];
+try { entries = JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch (e) { entries = []; }
+
+let currentFormat = "link";
+let pendingFile = null;
+let starOnly = false;
+const objectUrls = new Map(); // entryId -> objectURL(再生成を避けるキャッシュ)
+
+function save() {
+  localStorage.setItem(LS_KEY, JSON.stringify(entries));
+}
+
+/* ============ ユーティリティ ============ */
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function parseTime(str) { // "1:23" -> 83秒。無効ならnull
+  const m = String(str).trim().match(/^(?:(\d+):)?(\d{1,2}(?:\.\d+)?)$/);
+  if (!m) return null;
+  return (parseInt(m[1] || "0", 10)) * 60 + parseFloat(m[2]);
+}
+
+function youtubeId(url) {
+  const m = url.match(/(?:youtube\.com\/(?:watch\?[^#]*v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+function spotifyEmbed(url) {
+  const m = url.match(/open\.spotify\.com\/(?:intl-\w+\/)?(track|album|playlist|episode)\/([\w]+)/);
+  return m ? `https://open.spotify.com/embed/${m[1]}/${m[2]}` : null;
+}
+
+function keySelectHtml(cls, selected) {
+  return `<select class="${cls}">` +
+    KEYS.map((k) => `<option value="${esc(k)}"${k === selected ? " selected" : ""}>${esc(k)}</option>`).join("") +
+    `</select>`;
+}
+
+/* ============ フォーム:形式タブ ============ */
+document.querySelectorAll(".format-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".format-tab").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentFormat = tab.dataset.format;
+    $("#link-field").classList.toggle("hidden", currentFormat !== "link");
+    $("#mp3-field").classList.toggle("hidden", currentFormat !== "mp3");
+  });
+});
+
+/* ============ フォーム:MP3ドロップ ============ */
+const dropzone = $("#dropzone");
+const fileInput = $("#in-file");
+dropzone.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => setPendingFile(fileInput.files[0]));
+dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("dragover"); });
+dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+dropzone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropzone.classList.remove("dragover");
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith("audio")) setPendingFile(f);
+});
+function setPendingFile(f) {
+  pendingFile = f || null;
+  dropzone.classList.toggle("has-file", !!f);
+  dropzone.textContent = f ? `🎵 ${f.name}(${(f.size / 1024 / 1024).toFixed(1)} MB)` : "🎵 ここにMP3をドラッグ&ドロップ、またはクリックして選択";
+  if (f && !$("#in-title").value) {
+    $("#in-title").value = f.name.replace(/\.[^.]+$/, "");
+  }
+}
+
+/* ============ フォーム:転調ポイント ============ */
+function addModPointRow(data = {}) {
+  const div = document.createElement("div");
+  div.className = "mod-point";
+  div.innerHTML =
+    `<input type="text" class="time-in" placeholder="1:23" value="${esc(data.time || "")}" title="転調する時間(分:秒)">` +
+    keySelectHtml("key-from", data.keyFrom || "?") +
+    `<span class="arrow">→</span>` +
+    keySelectHtml("key-to", data.keyTo || "?") +
+    `<input type="text" class="prog-in" placeholder="コード進行(例: F G Em Am → G A F#m Bm)" value="${esc(data.progression || "")}">` +
+    `<button type="button" class="del-mod" title="削除">✕</button>`;
+  div.querySelector(".del-mod").addEventListener("click", () => div.remove());
+  $("#mod-points").appendChild(div);
+}
+$("#add-mod").addEventListener("click", () => addModPointRow());
+addModPointRow(); // 最初から1行
+
+function collectModPoints() {
+  return [...document.querySelectorAll("#mod-points .mod-point")].map((row) => ({
+    time: row.querySelector(".time-in").value.trim(),
+    keyFrom: row.querySelector(".key-from").value,
+    keyTo: row.querySelector(".key-to").value,
+    progression: row.querySelector(".prog-in").value.trim(),
+  })).filter((m) => m.time || m.progression || m.keyFrom !== "?" || m.keyTo !== "?");
+}
+
+/* ============ 追加 ============ */
+$("#add-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const title = $("#in-title").value.trim();
+  const url = $("#in-url").value.trim();
+
+  if (currentFormat === "link" && !url) { alert("曲のURLを入れてください"); return; }
+  if (currentFormat === "mp3" && !pendingFile) { alert("MP3ファイルを選んでください"); return; }
+  if (currentFormat === "text" && !title) { alert("曲名を入れてください"); return; }
+
+  const entry = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+    createdAt: new Date().toISOString(),
+    sourceType: currentFormat,
+    url: currentFormat === "link" ? url : "",
+    fileName: currentFormat === "mp3" ? pendingFile.name : "",
+    title: title || (currentFormat === "link" ? url : ""),
+    artist: $("#in-artist").value.trim(),
+    modulations: collectModPoints(),
+    memo: $("#in-memo").value.trim(),
+    tags: $("#in-tags").value.split(",").map((t) => t.trim()).filter(Boolean),
+    starred: false,
+  };
+
+  if (currentFormat === "mp3") {
+    try {
+      await audioPut(entry.id, pendingFile);
+    } catch (err) {
+      alert("MP3の保存に失敗しました: " + err);
+      return;
+    }
+  }
+
+  entries.unshift(entry);
+  save();
+
+  // フォームをリセット
+  e.target.reset();
+  setPendingFile(null);
+  $("#mod-points").innerHTML = "";
+  addModPointRow();
+  render();
+});
+
+/* ============ 一覧描画 ============ */
+function matchesFilters(en) {
+  const q = $("#search").value.trim().toLowerCase();
+  if (q) {
+    const hay = [en.title, en.artist, en.memo, en.tags.join(" "),
+      ...en.modulations.map((m) => `${m.keyFrom} ${m.keyTo} ${m.progression}`)].join(" ").toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  const fmt = $("#filter-format").value;
+  if (fmt && en.sourceType !== fmt) return false;
+  const key = $("#filter-key").value;
+  if (key && !en.modulations.some((m) => m.keyFrom === key || m.keyTo === key)) return false;
+  if (starOnly && !en.starred) return false;
+  return true;
+}
+
+const FORMAT_BADGE = { link: "🔗 リンク", mp3: "🎧 MP3", text: "✍️ 手入力" };
+
+function render() {
+  const list = $("#list");
+  list.innerHTML = "";
+  const visible = entries.filter(matchesFilters);
+
+  if (!visible.length) {
+    list.innerHTML = `<div class="empty"><div class="big">🎼</div>${
+      entries.length ? "条件に合うfav.がありません" : "まだfav.がありません。<br>上のフォームから好きな転調を登録してみてください♪"
+    }</div>`;
+    return;
+  }
+
+  for (const en of visible) {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const modsHtml = en.modulations.map((m, i) => {
+      const sec = parseTime(m.time);
+      const timeHtml = m.time
+        ? `<button type="button" class="time-jump" data-idx="${i}" data-sec="${sec ?? ""}">▶ ${esc(m.time)}</button>`
+        : "";
+      const keysHtml = (m.keyFrom !== "?" || m.keyTo !== "?")
+        ? `<span class="keys">${esc(m.keyFrom)} → <span class="to">${esc(m.keyTo)}</span></span>` : "";
+      const progHtml = m.progression ? `<span class="prog">${esc(m.progression)}</span>` : "";
+      return `<div class="mod-row">${timeHtml}${keysHtml}${progHtml}</div>`;
+    }).join("");
+
+    card.innerHTML =
+      `<div class="card-head">
+        <button type="button" class="star-btn ${en.starred ? "on" : ""}" title="お気に入り">★</button>
+        <div class="card-title">
+          <h3>${esc(en.title) || "(無題)"}</h3>
+          ${en.artist ? `<div class="artist">${esc(en.artist)}</div>` : ""}
+        </div>
+        <span class="badge">${FORMAT_BADGE[en.sourceType] || ""}</span>
+        <button type="button" class="del-btn" title="削除">🗑</button>
+      </div>` +
+      (modsHtml ? `<div class="mod-list">${modsHtml}</div>` : "") +
+      (en.memo ? `<div class="memo">${esc(en.memo)}</div>` : "") +
+      (en.tags.length ? `<div class="tags">${en.tags.map((t) => `<span class="tag" data-tag="${esc(t)}">#${esc(t)}</span>`).join("")}</div>` : "") +
+      `<div class="media"></div>`;
+
+    card.querySelector(".star-btn").addEventListener("click", () => {
+      en.starred = !en.starred;
+      save();
+      render();
+    });
+    card.querySelector(".del-btn").addEventListener("click", async () => {
+      if (!confirm(`「${en.title || "(無題)"}」を削除しますか?`)) return;
+      entries = entries.filter((x) => x.id !== en.id);
+      if (en.sourceType === "mp3") {
+        await audioDelete(en.id).catch(() => {});
+        const u = objectUrls.get(en.id);
+        if (u) { URL.revokeObjectURL(u); objectUrls.delete(en.id); }
+      }
+      save();
+      render();
+    });
+    card.querySelectorAll(".tag").forEach((t) => t.addEventListener("click", () => {
+      $("#search").value = t.dataset.tag;
+      render();
+    }));
+
+    renderMedia(en, card);
+    list.appendChild(card);
+  }
+}
+
+function renderMedia(en, card) {
+  const media = card.querySelector(".media");
+
+  if (en.sourceType === "link" && en.url) {
+    const yt = youtubeId(en.url);
+    const sp = spotifyEmbed(en.url);
+    if (yt) {
+      const firstSec = en.modulations.map((m) => parseTime(m.time)).find((s) => s != null);
+      const start = firstSec != null ? Math.max(0, Math.floor(firstSec) - 5) : 0;
+      media.innerHTML = `<div class="embed yt"><iframe src="https://www.youtube-nocookie.com/embed/${yt}?start=${start}" allow="autoplay; encrypted-media" allowfullscreen loading="lazy"></iframe></div>`;
+      // 時間ボタン → その5秒前から再生し直す
+      card.querySelectorAll(".time-jump").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const sec = parseFloat(btn.dataset.sec);
+          if (isNaN(sec)) return;
+          media.querySelector("iframe").src =
+            `https://www.youtube-nocookie.com/embed/${yt}?start=${Math.max(0, Math.floor(sec) - 5)}&autoplay=1`;
+        });
+      });
+    } else if (sp) {
+      media.innerHTML = `<div class="embed"><iframe src="${sp}" height="152" allow="encrypted-media" loading="lazy"></iframe></div>`;
+    } else {
+      media.innerHTML = `<div class="link-out">🔗 <a href="${esc(en.url)}" target="_blank" rel="noopener">${esc(en.url)}</a></div>`;
+    }
+    return;
+  }
+
+  if (en.sourceType === "mp3") {
+    const audio = document.createElement("audio");
+    audio.controls = true;
+    audio.preload = "none";
+    media.appendChild(audio);
+
+    const attach = (url) => {
+      audio.src = url;
+      card.querySelectorAll(".time-jump").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const sec = parseFloat(btn.dataset.sec);
+          if (isNaN(sec)) return;
+          audio.currentTime = Math.max(0, sec - 5); // 転調の5秒前から
+          audio.play();
+        });
+      });
+    };
+
+    if (objectUrls.has(en.id)) {
+      attach(objectUrls.get(en.id));
+    } else {
+      audioGet(en.id).then((blob) => {
+        if (!blob) {
+          media.innerHTML = `<div class="link-out">⚠️ 音声データが見つかりません(${esc(en.fileName)})</div>`;
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        objectUrls.set(en.id, url);
+        attach(url);
+      });
+    }
+  }
+}
+
+/* ============ フィルタUI ============ */
+const keyFilter = $("#filter-key");
+KEYS.filter((k) => k !== "?").forEach((k) => {
+  const opt = document.createElement("option");
+  opt.value = k;
+  opt.textContent = k;
+  keyFilter.appendChild(opt);
+});
+$("#search").addEventListener("input", render);
+$("#filter-format").addEventListener("change", render);
+keyFilter.addEventListener("change", render);
+$("#filter-star").addEventListener("click", (e) => {
+  starOnly = !starOnly;
+  e.currentTarget.classList.toggle("active", starOnly);
+  render();
+});
+
+/* ============ エクスポート / インポート ============ */
+$("#export-btn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `modulation-favs-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+$("#import-btn").addEventListener("click", () => $("#import-file").click());
+$("#import-file").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  f.text().then((text) => {
+    const data = JSON.parse(text);
+    if (!Array.isArray(data)) throw new Error("形式が不正です");
+    const existing = new Set(entries.map((x) => x.id));
+    let added = 0;
+    for (const en of data) {
+      if (en && en.id && !existing.has(en.id)) {
+        en.modulations = Array.isArray(en.modulations) ? en.modulations : [];
+        en.tags = Array.isArray(en.tags) ? en.tags : [];
+        entries.push(en);
+        added++;
+      }
+    }
+    entries.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    save();
+    render();
+    alert(`${added}件インポートしました`);
+  }).catch((err) => alert("インポートに失敗しました: " + err.message));
+  e.target.value = "";
+});
+
+render();
+</script>
+</body>
+</html>
