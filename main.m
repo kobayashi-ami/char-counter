@@ -1,6 +1,7 @@
 // 文字数カウンター — テキストを選択するだけでカーソル近くに文字数を表示
 #import <Cocoa/Cocoa.h>
 #import <ApplicationServices/ApplicationServices.h>
+#import <QuartzCore/QuartzCore.h>
 
 static NSUInteger CountChars(NSString *s) {
     // 絵文字なども1文字として数える（書記素単位）
@@ -15,6 +16,9 @@ static NSUInteger CountChars(NSString *s) {
 @property (strong) NSStatusItem *statusItem;
 @property (strong) NSPanel *panel;
 @property (strong) NSTextField *label;
+@property (strong) NSVisualEffectView *glass;
+@property (strong) CAGradientLayer *sheen;
+@property (assign) BOOL hiding;
 @property (strong) NSTimer *timer;
 @property (copy) NSString *lastText;
 @property (assign) pid_t lastPid;
@@ -58,23 +62,84 @@ static NSUInteger CountChars(NSString *s) {
     self.panel.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces
                                   | NSWindowCollectionBehaviorFullScreenAuxiliary;
 
-    NSView *bg = [NSView new];
-    bg.wantsLayer = YES;
-    bg.layer.backgroundColor = [NSColor colorWithCalibratedWhite:0.08 alpha:0.92].CGColor;
-    bg.layer.cornerRadius = 9;
+    // ガラス本体：背後のウィンドウを実際にぼかして透かす（ライト/ダーク自動適応）
+    NSVisualEffectView *glass = [NSVisualEffectView new];
+    glass.material = NSVisualEffectMaterialPopover;
+    glass.blendingMode = NSVisualEffectBlendingModeBehindWindow;
+    glass.state = NSVisualEffectStateActive;
+    glass.wantsLayer = YES;
+    glass.layer.masksToBounds = YES;
+    glass.layer.borderWidth = 1;
+    glass.layer.borderColor = [NSColor colorWithWhite:1 alpha:0.35].CGColor;
+    self.glass = glass;
 
     self.label = [NSTextField labelWithString:@""];
-    self.label.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
-    self.label.textColor = [NSColor whiteColor];
+    NSFont *font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
+    NSFontDescriptor *rounded = [font.fontDescriptor fontDescriptorWithDesign:NSFontDescriptorSystemDesignRounded];
+    if (rounded) font = [NSFont fontWithDescriptor:rounded size:13] ?: font;
+    self.label.font = font;
+    self.label.textColor = [NSColor labelColor];
     self.label.translatesAutoresizingMaskIntoConstraints = NO;
-    [bg addSubview:self.label];
+    [glass addSubview:self.label];
     [NSLayoutConstraint activateConstraints:@[
-        [self.label.leadingAnchor constraintEqualToAnchor:bg.leadingAnchor constant:11],
-        [self.label.trailingAnchor constraintEqualToAnchor:bg.trailingAnchor constant:-11],
-        [self.label.topAnchor constraintEqualToAnchor:bg.topAnchor constant:6],
-        [self.label.bottomAnchor constraintEqualToAnchor:bg.bottomAnchor constant:-6],
+        [self.label.leadingAnchor constraintEqualToAnchor:glass.leadingAnchor constant:13],
+        [self.label.trailingAnchor constraintEqualToAnchor:glass.trailingAnchor constant:-13],
+        [self.label.topAnchor constraintEqualToAnchor:glass.topAnchor constant:7],
+        [self.label.bottomAnchor constraintEqualToAnchor:glass.bottomAnchor constant:-7],
     ]];
-    self.panel.contentView = bg;
+
+    // 光の反射：上から差し込む斜めのスペキュラーハイライト（レイヤーホスティング）
+    CAGradientLayer *spec = [CAGradientLayer layer];
+    spec.colors = @[(id)[NSColor colorWithWhite:1 alpha:0.28].CGColor,
+                    (id)[NSColor colorWithWhite:1 alpha:0.05].CGColor,
+                    (id)[NSColor colorWithWhite:1 alpha:0.0].CGColor];
+    spec.locations = @[@0.0, @0.5, @1.0];
+    spec.startPoint = CGPointMake(0.3, 1.0);   // AppKitのレイヤー座標は左下原点
+    spec.endPoint = CGPointMake(0.7, 0.0);
+
+    // 出現時に横切る光の帯（屈折のきらめき）
+    CAGradientLayer *sheen = [CAGradientLayer layer];
+    sheen.colors = @[(id)[NSColor colorWithWhite:1 alpha:0.0].CGColor,
+                     (id)[NSColor colorWithWhite:1 alpha:0.35].CGColor,
+                     (id)[NSColor colorWithWhite:1 alpha:0.0].CGColor];
+    sheen.startPoint = CGPointMake(0, 0.5);
+    sheen.endPoint = CGPointMake(1, 0.5);
+    sheen.opacity = 0;
+    [spec addSublayer:sheen];
+    self.sheen = sheen;
+
+    NSView *overlay = [NSView new];
+    [overlay setLayer:spec];
+    [overlay setWantsLayer:YES];
+    overlay.frame = glass.bounds;
+    overlay.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    [glass addSubview:overlay];
+
+    self.panel.contentView = glass;
+}
+
+// 出現時にガラスの上を光がすっと走る
+- (void)runSheen {
+    NSSize s = self.panel.contentView.bounds.size;
+    CGFloat w = MAX(s.width * 0.45, 24);
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    self.sheen.bounds = CGRectMake(0, 0, w, s.height * 2.2);
+    self.sheen.position = CGPointMake(-w, s.height / 2);
+    self.sheen.transform = CATransform3DMakeRotation(0.3, 0, 0, 1);
+    [CATransaction commit];
+
+    CABasicAnimation *move = [CABasicAnimation animationWithKeyPath:@"position.x"];
+    move.fromValue = @(-w);
+    move.toValue = @(s.width + w);
+    CAKeyframeAnimation *fade = [CAKeyframeAnimation animationWithKeyPath:@"opacity"];
+    fade.values = @[@0.0, @1.0, @1.0, @0.0];
+    fade.keyTimes = @[@0.0, @0.25, @0.75, @1.0];
+    CAAnimationGroup *g = [CAAnimationGroup animation];
+    g.animations = @[move, fade];
+    g.duration = 0.6;
+    g.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+    [self.sheen addAnimation:g forKey:@"sweep"];
 }
 
 - (void)tick {
@@ -91,7 +156,13 @@ static NSUInteger CountChars(NSString *s) {
     if (text.length == 0) {
         if (self.lastText.length > 0) {
             self.lastText = @"";
-            [self.panel orderOut:nil];
+            self.hiding = YES;
+            [NSAnimationContext runAnimationGroup:^(NSAnimationContext *ctx) {
+                ctx.duration = 0.15;
+                [[self.panel animator] setAlphaValue:0];
+            } completionHandler:^{
+                if (self.hiding) { [self.panel orderOut:nil]; self.hiding = NO; }
+            }];
         }
         return;
     }
@@ -109,6 +180,7 @@ static NSUInteger CountChars(NSString *s) {
     [self.panel.contentView layoutSubtreeIfNeeded];
     NSSize size = self.panel.contentView.fittingSize;
     [self.panel setContentSize:size];
+    self.glass.layer.cornerRadius = size.height / 2;  // カプセル形状
 
     NSPoint mouse = [NSEvent mouseLocation];
     // カーソルの下側に出す。上側は「調べる」やアプリの選択ポップアップ
@@ -124,8 +196,24 @@ static NSUInteger CountChars(NSString *s) {
             break;
         }
     }
-    [self.panel setFrameOrigin:origin];
-    [self.panel orderFrontRegardless];
+    BOOL wasVisible = self.panel.isVisible && !self.hiding;
+    self.hiding = NO;
+    if (wasVisible) {
+        [self.panel setFrameOrigin:origin];
+        [self.panel orderFrontRegardless];
+    } else {
+        // ふわっと浮き上がりながらフェードイン＋光が横切る
+        self.panel.alphaValue = 0;
+        [self.panel setFrameOrigin:NSMakePoint(origin.x, origin.y - 7)];
+        [self.panel orderFrontRegardless];
+        [NSAnimationContext runAnimationGroup:^(NSAnimationContext *ctx) {
+            ctx.duration = 0.22;
+            ctx.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
+            [[self.panel animator] setAlphaValue:1];
+            [[self.panel animator] setFrameOrigin:origin];
+        } completionHandler:nil];
+        [self runSheen];
+    }
 }
 
 - (NSString *)selectedText {
