@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>U-NEXT シネマ独占ガイド — U-NEXTでしか見れない映画</title>
+<style>
+  :root{
+    --bg:#07080c;
+    --bg2:#0d1017;
+    --panel:rgba(22,26,36,.72);
+    --panel-solid:#141824;
+    --line:rgba(255,255,255,.08);
+    --text:#f3f5fa;
+    --muted:#9aa3b5;
+    --accent:#00c2a8;      /* U-NEXTのシアン系アクセントを想起させる独自色 */
+    --accent2:#5b8cff;
+    --gold:#ffcf5c;
+    --radius:18px;
+    --shadow:0 18px 50px rgba(0,0,0,.55);
+    font-synthesis-weight:none;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1200px 700px at 80% -10%, rgba(91,140,255,.18), transparent 60%),
+      radial-gradient(900px 600px at 0% 0%, rgba(0,194,168,.14), transparent 55%),
+      linear-gradient(180deg,var(--bg),var(--bg2));
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Segoe UI",Roboto,sans-serif;
+    line-height:1.6;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+
+  /* header */
+  header.hero{
+    position:relative;
+    padding:64px 0 34px;
+    overflow:hidden;
+  }
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:12px;letter-spacing:.14em;font-weight:700;
+    color:var(--accent);text-transform:uppercase;
+    padding:6px 12px;border:1px solid var(--line);border-radius:999px;
+    background:rgba(0,194,168,.08);
+  }
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  h1{
+    font-size:clamp(28px,5vw,48px);
+    line-height:1.15;margin:18px 0 10px;font-weight:800;letter-spacing:-.01em;
+  }
+  h1 .hl{
+    background:linear-gradient(120deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .lead{color:var(--muted);max-width:620px;font-size:16px}
+
+  /* controls */
+  .controls{
+    position:sticky;top:0;z-index:20;
+    padding:14px 0;margin-top:26px;
+    backdrop-filter:blur(14px);
+    background:linear-gradient(180deg,rgba(7,8,12,.86),rgba(7,8,12,.5));
+    border-bottom:1px solid var(--line);
+  }
+  .controls .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .search{
+    flex:1 1 240px;position:relative;min-width:200px;
+  }
+  .search input{
+    width:100%;padding:12px 14px 12px 42px;border-radius:12px;
+    border:1px solid var(--line);background:var(--panel);color:var(--text);
+    font-size:15px;outline:none;transition:border-color .2s,box-shadow .2s;
+  }
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,194,168,.18)}
+  .search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.55}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{
+    padding:9px 15px;border-radius:999px;border:1px solid var(--line);
+    background:var(--panel);color:var(--muted);cursor:pointer;font-size:13.5px;font-weight:600;
+    transition:all .18s;white-space:nowrap;
+  }
+  .chip:hover{color:var(--text);border-color:rgba(255,255,255,.22)}
+  .chip.active{background:linear-gradient(120deg,var(--accent),var(--accent2));color:#04121a;border-color:transparent}
+
+  /* stats */
+  .count{color:var(--muted);font-size:13px;margin:22px 0 10px}
+  .count b{color:var(--text)}
+
+  /* grid */
+  .grid{
+    display:grid;gap:20px;padding-bottom:40px;
+    grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+  }
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;cursor:pointer;position:relative;
+    transition:transform .2s,border-color .2s,box-shadow .2s;
+    display:flex;flex-direction:column;
+  }
+  .card:hover{transform:translateY(-5px);border-color:rgba(255,255,255,.2);box-shadow:var(--shadow)}
+  .poster{
+    aspect-ratio:16/10;position:relative;display:flex;align-items:flex-end;
+    padding:14px;overflow:hidden;
+  }
+  .poster::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 35%,rgba(0,0,0,.55));}
+  .poster .emoji{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-58%);
+    font-size:56px;filter:drop-shadow(0 6px 18px rgba(0,0,0,.5));opacity:.92;
+  }
+  .badge{
+    position:relative;z-index:2;font-size:11.5px;font-weight:800;letter-spacing:.03em;
+    padding:5px 10px;border-radius:8px;color:#04121a;
+    background:var(--gold);box-shadow:0 4px 14px rgba(0,0,0,.35);
+  }
+  .badge.watch{background:linear-gradient(120deg,var(--accent),#38e6c5)}
+  .badge.first{background:linear-gradient(120deg,var(--accent2),#8fb0ff)}
+  .card-body{padding:15px 16px 17px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .card-title{font-weight:800;font-size:16.5px;line-height:1.35}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .meta span{display:inline-flex;align-items:center;gap:4px}
+  .tag{padding:2px 8px;border:1px solid var(--line);border-radius:6px}
+  .desc{font-size:13.5px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+  .empty{padding:50px 20px;text-align:center;color:var(--muted);grid-column:1/-1}
+
+  /* modal */
+  .modal-back{
+    position:fixed;inset:0;z-index:100;display:none;
+    background:rgba(3,4,8,.72);backdrop-filter:blur(6px);
+    align-items:center;justify-content:center;padding:20px;
+  }
+  .modal-back.open{display:flex;animation:fade .2s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .modal{
+    background:var(--panel-solid);border:1px solid var(--line);border-radius:22px;
+    max-width:560px;width:100%;max-height:88vh;overflow:auto;box-shadow:var(--shadow);
+    animation:pop .22s cubic-bezier(.2,.9,.3,1.3);
+  }
+  @keyframes pop{from{transform:scale(.94);opacity:.4}to{transform:scale(1);opacity:1}}
+  .modal .hero-strip{aspect-ratio:16/8;position:relative;display:flex;align-items:center;justify-content:center}
+  .modal .hero-strip .emoji{font-size:74px;filter:drop-shadow(0 8px 22px rgba(0,0,0,.55))}
+  .modal .hero-strip::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,var(--panel-solid))}
+  .modal-close{
+    position:absolute;top:14px;right:14px;z-index:5;width:34px;height:34px;border-radius:50%;
+    border:1px solid var(--line);background:rgba(0,0,0,.4);color:#fff;cursor:pointer;font-size:18px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .modal-inner{padding:6px 24px 26px}
+  .modal-inner h2{margin:0 0 6px;font-size:23px}
+  .modal-badges{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .modal p.body{color:#d7dce6;font-size:14.5px}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:14px 0;font-size:14px}
+  .kv dt{color:var(--muted)}
+  .kv dd{margin:0}
+  .cta{
+    display:inline-flex;align-items:center;gap:8px;margin-top:8px;
+    padding:12px 18px;border-radius:12px;font-weight:800;text-decoration:none;
+    background:linear-gradient(120deg,var(--accent),var(--accent2));color:#04121a;
+    transition:transform .15s,filter .15s;
+  }
+  .cta:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .note-inline{font-size:12px;color:var(--muted);margin-top:12px}
+
+  /* footer */
+  footer{border-top:1px solid var(--line);padding:30px 0 60px;color:var(--muted);font-size:13px}
+  footer h3{color:var(--text);font-size:14px;margin:0 0 8px}
+  footer a{color:var(--accent2);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+  .disc{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:20px}
+  .srcs{display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow"><span class="dot"></span>UNOFFICIAL FAN GUIDE</span>
+    <h1>U-NEXTでしか<br><span class="hl">見れない映画</span>を、探す。</h1>
+    <p class="lead">他サービスでは配信されていない、U-NEXT独占・独占見放題・独占先行の映画を集めた非公式ガイド。気になる作品はU-NEXT公式ページへジャンプできます。</p>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="wrap">
+    <div class="row">
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="タイトル・ジャンルで検索…" autocomplete="off" />
+      </div>
+      <div class="chips" id="chips"></div>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+  <p class="count" id="count"></p>
+  <section class="grid" id="grid"></section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="disc">
+      <h3>ご利用にあたって</h3>
+      配信状況（独占・見放題・レンタルの別）は時期により変わります。掲載情報は各作品の発表・報道時点のものです。視聴前に必ず
+      <a href="https://video.unext.jp/" target="_blank" rel="noopener">U-NEXT公式サイト</a>
+      の最新の配信状況をご確認ください。本サイトはU-NEXTが運営する公式サービスではなく、作品情報をまとめた非公式ガイドです。
+    </div>
+    <h3>主な出典</h3>
+    <div class="srcs">
+      <a href="https://www.unext.co.jp/en/press-room/shingeki-the-last-attack-2025-06-23" target="_blank" rel="noopener">U-NEXT corporate — 進撃の巨人 完結編 THE LAST ATTACK 独占見放題配信</a>
+      <a href="https://taroman-movie.asmik-ace.co.jp/2025/12/24/461/" target="_blank" rel="noopener">映画『大長編 タローマン 万博大爆発』公式サイト — U-NEXT独占先行配信</a>
+      <a href="https://www.unext.co.jp/en/press-room/2025-04-unext-lineups" target="_blank" rel="noopener">U-NEXT corporate — 2025年4月ラインナップ『ラストマイル』独占配信</a>
+      <a href="https://www.unext.co.jp/en/press-room/2025-07-unext-lineups" target="_blank" rel="noopener">U-NEXT corporate — 2025年7月ラインナップ</a>
+      <a href="https://prtimes.jp/main/html/rd/p/000002516.000031998.html" target="_blank" rel="noopener">U-NEXT — 2025年12月新着配信ラインナップ</a>
+    </div>
+  </div>
+</footer>
+
+<div class="modal-back" id="modalBack">
+  <div class="modal" id="modal" role="dialog" aria-modal="true"></div>
+</div>
+
+<script>
+/* ---- データ：Web検索で確認できたU-NEXT独占系の実在タイトル ----
+   dist: watch=独占見放題 / first=独占先行 / excl=独占配信 */
+const MOVIES = [
+  {
+    id:"aot-last-attack",
+    title:'劇場版「進撃の巨人」完結編 THE LAST ATTACK',
+    year:2024, genre:"アニメ", cat:"anime",
+    dist:"watch", distLabel:"U-NEXT独占見放題",
+    emoji:"⚔️", grad:["#3a1c1c","#7a2b2b"],
+    since:"2025年7月1日〜",
+    short:"「進撃の巨人」The Final Seasonの完結2部作を再構成・磨き上げた集大成の劇場版。",
+    body:"母を奪われたエレンが巨人の駆逐を誓い、やがて自らも巨人へと変貌する力を得る——。The Final Seasonの前後編を榎戸洋司が再構成し、地鳴らしへと突き進むクライマックスを一本にまとめた完結編。原作34巻収録の「進撃！巨人中学校」を基にした新規映像も収録。日本国内ではU-NEXTが独占見放題配信。",
+    url:"https://video.unext.jp/"
+  },
+  {
+    id:"taroman-banpaku",
+    title:"大長編 タローマン 万博大爆発",
+    year:2025, genre:"特撮/コメディ", cat:"tokusatsu",
+    dist:"first", distLabel:"U-NEXT独占先行配信",
+    emoji:"🗼", grad:["#5a3a00","#b06a00"],
+    since:"2025年12月24日〜",
+    short:"岡本太郎のことばと作品をモチーフにした、でたらめ特撮ヒーローの劇場版。",
+    body:"時は1970年、万博に沸く日本。2025年の未来から万博を消し去るためにやってきた奇獣に対抗するには“でたらめな力”が必要だが、秩序と常識に満ちた未来ではその力は絶滅寸前に。地球防衛軍はタローマンと共に未来へ向かう。1970年代の特撮番組という体裁で岡本太郎の世界を描く異色作。配信限定特典として「山口一郎 登壇舞台挨拶」映像も。",
+    url:"https://video.unext.jp/title/SID0247957"
+  },
+  {
+    id:"last-mile",
+    title:"ラストマイル",
+    year:2024, genre:"サスペンス/邦画", cat:"jp",
+    dist:"excl", distLabel:"U-NEXT独占配信",
+    emoji:"📦", grad:["#0d2b3a","#175a6e"],
+    since:"2025年4月〜",
+    short:"「アンナチュラル」「MIU404」と世界を共有する、社会現象のシェアード・ユニバース・ムービー。",
+    body:"巨大物流倉庫で発生した連続爆破事件。ブラックフライデー最大の商戦を止めるわけにはいかない現場で、新任センター長たちが犯人の“動機”へと迫っていく。野木亜紀子脚本による〈シェアード・ユニバース〉の劇場版として大ヒットした話題作を、U-NEXTが独占配信。",
+    url:"https://video.unext.jp/"
+  },
+  {
+    id:"tokyo-mer-nankai",
+    title:"劇場版 TOKYO MER〜走る緊急救命室〜 南海ミッション",
+    year:2025, genre:"医療/邦画", cat:"jp",
+    dist:"first", distLabel:"U-NEXT先行レンタル独占",
+    emoji:"🚑", grad:["#3a0d1a","#7a1f3a"],
+    since:"2025年12月〜",
+    short:"走る緊急救命室が“海”へ。人気医療エンタメの劇場版第2弾。",
+    body:"どんな現場にも駆けつけ、必ず救う——救命救急のプロ集団MERが、今度は海上の災害現場へ。緊迫のオペと極限のミッションを描くシリーズ劇場版。U-NEXTが先行レンタルを独占配信。",
+    url:"https://video.unext.jp/"
+  },
+  {
+    id:"hataraku-saibou",
+    title:"実写映画 はたらく細胞",
+    year:2024, genre:"エンタメ/邦画", cat:"jp",
+    dist:"excl", distLabel:"U-NEXT配信",
+    emoji:"🩸", grad:["#3a0d0d","#8a2222"],
+    since:"2025年4月16日〜",
+    short:"体の中の細胞たちを擬人化した大ヒット作を、豪華キャストで実写映画化。",
+    body:"私たちの体の中では、今日も約37兆個の細胞が働いている。赤血球や白血球たちの奮闘を壮大なスケールで描いた人気作の実写版。家族で楽しめるエンターテインメントとしてヒットした一作。",
+    url:"https://video.unext.jp/"
+  },
+  {
+    id:"hbo",
+    title:"HBO / HBO Max 作品",
+    year:0, genre:"海外ドラマ/映画", cat:"foreign",
+    dist:"excl", distLabel:"日本国内U-NEXT独占",
+    emoji:"🎬", grad:["#1a1030","#3a2a6a"],
+    since:"パートナーシップ契約",
+    short:"Warner Bros. Discoveryとの独占契約により、HBO作品は日本ではU-NEXTのみ。",
+    body:"U-NEXT最大の目玉のひとつが、HBO/HBO Max作品の独占ラインナップ。2021年のWarnerMedia（現Warner Bros. Discovery）との独占パートナーシップにより、数々のHBO話題作が日本国内ではU-NEXTでのみ視聴できる。海外ドラマ・映画ファンにとっての“U-NEXTでしか見れない”定番カテゴリ。",
+    url:"https://video.unext.jp/"
+  },
+  {
+    id:"korea",
+    title:"韓国ドラマ・韓国映画（本国同時独占）",
+    year:0, genre:"アジア/韓流", cat:"foreign",
+    dist:"excl", distLabel:"U-NEXT独占",
+    emoji:"🇰🇷", grad:["#10202a","#1f4a5a"],
+    since:"韓国主要局と直接契約",
+    short:"韓国主要局との直接契約で、本国同時配信の独占タイトルが多数。",
+    body:"U-NEXTは韓国の主要放送局と直接契約を結び、本国同時配信の独占作品を多数そろえる。ラブコメから時代劇、ホラーアクションまでジャンルは幅広く、“ここでしか見られない”韓流タイトルが充実。作品は入れ替わるため、最新の独占ラインナップは公式の特集ページで確認を。",
+    url:"https://video.unext.jp/"
+  }
+];
+
+const FILTERS = [
+  {key:"all",   label:"すべて"},
+  {key:"anime", label:"アニメ"},
+  {key:"jp",    label:"邦画"},
+  {key:"foreign",label:"洋画・海外"},
+  {key:"tokusatsu",label:"特撮"}
+];
+
+let activeFilter = "all";
+let query = "";
+
+const grid = document.getElementById("grid");
+const countEl = document.getElementById("count");
+const chipsEl = document.getElementById("chips");
+const qEl = document.getElementById("q");
+
+function badgeClass(d){return d==="watch"?"watch":d==="first"?"first":"";}
+
+function render(){
+  const q = query.trim().toLowerCase();
+  const list = MOVIES.filter(m=>{
+    const okCat = activeFilter==="all" || m.cat===activeFilter;
+    const okQ = !q || (m.title+m.genre+m.short).toLowerCase().includes(q);
+    return okCat && okQ;
+  });
+
+  countEl.innerHTML = `<b>${list.length}</b> 作品 / 全 ${MOVIES.length} 作品`;
+  grid.innerHTML = "";
+
+  if(!list.length){
+    grid.innerHTML = `<div class="empty">該当する作品が見つかりませんでした。<br>キーワードやジャンルを変えてお試しください。</div>`;
+    return;
+  }
+
+  list.forEach(m=>{
+    const el = document.createElement("article");
+    el.className = "card";
+    el.innerHTML = `
+      <div class="poster" style="background:linear-gradient(135deg,${m.grad[0]},${m.grad[1]})">
+        <span class="emoji">${m.emoji}</span>
+        <span class="badge ${badgeClass(m.dist)}">${m.distLabel}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${m.title}</div>
+        <div class="meta">
+          ${m.year?`<span class="tag">${m.year}</span>`:""}
+          <span class="tag">${m.genre}</span>
+        </div>
+        <div class="desc">${m.short}</div>
+      </div>`;
+    el.addEventListener("click",()=>openModal(m));
+    grid.appendChild(el);
+  });
+}
+
+function renderChips(){
+  FILTERS.forEach(f=>{
+    const c = document.createElement("button");
+    c.className = "chip"+(f.key===activeFilter?" active":"");
+    c.textContent = f.label;
+    c.addEventListener("click",()=>{activeFilter=f.key;renderChips();render();});
+    chipsEl.appendChild(c);
+  });
+}
+function renderChipsInit(){chipsEl.innerHTML="";renderChips();}
+
+const modalBack = document.getElementById("modalBack");
+const modal = document.getElementById("modal");
+
+function openModal(m){
+  modal.innerHTML = `
+    <button class="modal-close" aria-label="閉じる">×</button>
+    <div class="hero-strip" style="background:linear-gradient(135deg,${m.grad[0]},${m.grad[1]})">
+      <span class="emoji">${m.emoji}</span>
+    </div>
+    <div class="modal-inner">
+      <h2>${m.title}</h2>
+      <div class="modal-badges">
+        <span class="badge ${badgeClass(m.dist)}">${m.distLabel}</span>
+      </div>
+      <p class="body">${m.body}</p>
+      <dl class="kv">
+        ${m.year?`<dt>公開</dt><dd>${m.year}年</dd>`:""}
+        <dt>ジャンル</dt><dd>${m.genre}</dd>
+        <dt>配信</dt><dd>${m.distLabel}${m.since?`（${m.since}）`:""}</dd>
+      </dl>
+      <a class="cta" href="${m.url}" target="_blank" rel="noopener">
+        U-NEXTで見る
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg>
+      </a>
+      <p class="note-inline">※ リンク先はU-NEXT公式。配信状況は変更される場合があります。</p>
+    </div>`;
+  modal.querySelector(".modal-close").addEventListener("click",closeModal);
+  modalBack.classList.add("open");
+  document.body.style.overflow="hidden";
+}
+function closeModal(){modalBack.classList.remove("open");document.body.style.overflow="";}
+modalBack.addEventListener("click",e=>{if(e.target===modalBack)closeModal();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
+
+qEl.addEventListener("input",e=>{query=e.target.value;render();});
+
+renderChipsInit();
+render();
+</script>
+</body>
+</html>
