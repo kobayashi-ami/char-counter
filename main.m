@@ -18,6 +18,7 @@ static NSUInteger CountChars(NSString *s) {
 @property (strong) NSTextField *label;
 @property (strong) NSVisualEffectView *glass;
 @property (strong) CAGradientLayer *sheen;
+@property (strong) CAGradientLayer *glow;
 @property (assign) BOOL hiding;
 @property (strong) NSTimer *timer;
 @property (copy) NSString *lastText;
@@ -49,6 +50,17 @@ static NSUInteger CountChars(NSString *s) {
                                                 selector:@selector(tick) userInfo:nil repeats:YES];
 }
 
+// レイヤーをカプセルいっぱいに敷くビューを作って重ねる（サイズは自動追従）
+- (NSView *)hostLayer:(CALayer *)layer in:(NSView *)parent {
+    NSView *v = [NSView new];
+    [v setLayer:layer];
+    [v setWantsLayer:YES];
+    v.frame = parent.bounds;
+    v.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    [parent addSubview:v];
+    return v;
+}
+
 - (void)buildPanel {
     self.panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, 10, 10)
                                             styleMask:NSWindowStyleMaskNonactivatingPanel | NSWindowStyleMaskBorderless
@@ -62,23 +74,77 @@ static NSUInteger CountChars(NSString *s) {
     self.panel.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces
                                   | NSWindowCollectionBehaviorFullScreenAuxiliary;
 
-    // ガラス本体：背後のウィンドウを実際にぼかして透かす（ライト/ダーク自動適応）
+    // ガラス本体：背後のウィンドウを実際にぼかして透かす
+    // "Always On Time" PVの色味＝深いネイビー影＋スチールブルー＋シアンの光。
+    // ライト/ダーク問わずあの夜のブルーに沈めたいので、暗い外観を明示する。
     NSVisualEffectView *glass = [NSVisualEffectView new];
-    glass.material = NSVisualEffectMaterialPopover;
+    glass.material = NSVisualEffectMaterialHUDWindow;
     glass.blendingMode = NSVisualEffectBlendingModeBehindWindow;
     glass.state = NSVisualEffectStateActive;
+    glass.appearance = [NSAppearance appearanceNamed:NSAppearanceNameVibrantDark];
     glass.wantsLayer = YES;
     glass.layer.masksToBounds = YES;
-    glass.layer.borderWidth = 1;
-    glass.layer.borderColor = [NSColor colorWithWhite:1 alpha:0.35].CGColor;
+    // フチなし：カプセルの輪郭は影とティントだけで表現する
     self.glass = glass;
+
+    // 色味：単色にしない。AOTの夜のブルーにPrinceの紫を滲ませ、色の境目に
+    // “ごちゃつき”＝色気を作る。ティール〜インクネイビーの土台に、マゼンタの
+    // グローとアンバーの残り火をスクリーン合成で乗せた、濡れたオイルスリック。
+
+    // 土台：左上ティール → 中央 → 右下インクネイビー（3段で奥行き）
+    CAGradientLayer *base = [CAGradientLayer layer];
+    base.colors = @[(id)[NSColor colorWithCalibratedRed:0.16 green:0.40 blue:0.48 alpha:0.52].CGColor,
+                    (id)[NSColor colorWithCalibratedRed:0.09 green:0.22 blue:0.33 alpha:0.60].CGColor,
+                    (id)[NSColor colorWithCalibratedRed:0.03 green:0.09 blue:0.17 alpha:0.72].CGColor];
+    base.locations = @[@0.0, @0.5, @1.0];
+    base.startPoint = CGPointMake(0.10, 1.0);   // 左上（レイヤー座標は左下原点）
+    base.endPoint = CGPointMake(0.90, 0.0);     // 右下
+    [self hostLayer:base in:glass];
+
+    // Princeのマゼンタ光：右上に灯る球状のグロー。スクリーン合成で青と溶け合い
+    // 境界に紫〜青緑の“濁り”を生む
+    CAGradientLayer *glow = [CAGradientLayer layer];
+    glow.type = kCAGradientLayerRadial;
+    glow.colors = @[(id)[NSColor colorWithCalibratedRed:0.74 green:0.15 blue:0.56 alpha:0.62].CGColor,
+                    (id)[NSColor colorWithCalibratedRed:0.44 green:0.10 blue:0.62 alpha:0.30].CGColor,
+                    (id)[NSColor colorWithCalibratedRed:0.44 green:0.10 blue:0.62 alpha:0.0].CGColor];
+    glow.locations = @[@0.0, @0.45, @1.0];
+    glow.startPoint = CGPointMake(0.82, 0.85);  // 右上に中心
+    glow.endPoint = CGPointMake(1.5, 1.6);      // 外へ広がる半径
+    NSView *glowView = [self hostLayer:glow in:glass];
+    glowView.layer.compositingFilter = @"screenBlendMode";
+    self.glow = glow;
+
+    // アンバーの残り火：下辺だけ温度を上げる。冷たい青×肌の暖色＝AOTの艶
+    CAGradientLayer *ember = [CAGradientLayer layer];
+    ember.colors = @[(id)[NSColor colorWithCalibratedRed:0.72 green:0.34 blue:0.13 alpha:0.32].CGColor,
+                     (id)[NSColor colorWithCalibratedRed:0.72 green:0.34 blue:0.13 alpha:0.0].CGColor];
+    ember.locations = @[@0.0, @1.0];
+    ember.startPoint = CGPointMake(0.4, 0.0);   // 下辺から
+    ember.endPoint = CGPointMake(0.5, 0.75);    // 上へ薄れる
+    NSView *emberView = [self hostLayer:ember in:glass];
+    emberView.layer.compositingFilter = @"screenBlendMode";
+
+    // 静止させない。紫を生き物のように微かに息づかせる（Princeの変態性＝艶）
+    CABasicAnimation *breathe = [CABasicAnimation animationWithKeyPath:@"opacity"];
+    breathe.fromValue = @0.62; breathe.toValue = @1.0;
+    breathe.duration = 2.6; breathe.autoreverses = YES; breathe.repeatCount = HUGE_VALF;
+    breathe.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+    [glow addAnimation:breathe forKey:@"breathe"];
+    CABasicAnimation *drift = [CABasicAnimation animationWithKeyPath:@"startPoint"];
+    drift.fromValue = [NSValue valueWithPoint:NSMakePoint(0.78, 0.82)];
+    drift.toValue = [NSValue valueWithPoint:NSMakePoint(0.90, 0.92)];
+    drift.duration = 5.5; drift.autoreverses = YES; drift.repeatCount = HUGE_VALF;
+    drift.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+    [glow addAnimation:drift forKey:@"drift"];
 
     self.label = [NSTextField labelWithString:@""];
     NSFont *font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
     NSFontDescriptor *rounded = [font.fontDescriptor fontDescriptorWithDesign:NSFontDescriptorSystemDesignRounded];
     if (rounded) font = [NSFont fontWithDescriptor:rounded size:13] ?: font;
     self.label.font = font;
-    self.label.textColor = [NSColor labelColor];
+    // 読み：シアン寄りの冷たい白（あのPVのハイライトの色温度）
+    self.label.textColor = [NSColor colorWithCalibratedRed:0.87 green:0.96 blue:0.98 alpha:1.0];
     self.label.translatesAutoresizingMaskIntoConstraints = NO;
     [glass addSubview:self.label];
     [NSLayoutConstraint activateConstraints:@[
@@ -88,20 +154,23 @@ static NSUInteger CountChars(NSString *s) {
         [self.label.bottomAnchor constraintEqualToAnchor:glass.bottomAnchor constant:-7],
     ]];
 
-    // 光の反射：上から差し込む斜めのスペキュラーハイライト（レイヤーホスティング）
+    // 光の反射：上から差し込む斜めのスペキュラーハイライト（シアン寄りの光）
     CAGradientLayer *spec = [CAGradientLayer layer];
-    spec.colors = @[(id)[NSColor colorWithWhite:1 alpha:0.28].CGColor,
-                    (id)[NSColor colorWithWhite:1 alpha:0.05].CGColor,
-                    (id)[NSColor colorWithWhite:1 alpha:0.0].CGColor];
+    spec.colors = @[(id)[NSColor colorWithCalibratedRed:0.72 green:0.92 blue:0.99 alpha:0.30].CGColor,
+                    (id)[NSColor colorWithCalibratedRed:0.72 green:0.92 blue:0.99 alpha:0.06].CGColor,
+                    (id)[NSColor colorWithCalibratedRed:0.72 green:0.92 blue:0.99 alpha:0.0].CGColor];
     spec.locations = @[@0.0, @0.5, @1.0];
     spec.startPoint = CGPointMake(0.3, 1.0);   // AppKitのレイヤー座標は左下原点
     spec.endPoint = CGPointMake(0.7, 0.0);
 
-    // 出現時に横切る光の帯（屈折のきらめき）
+    // 出現時に横切る光の帯：単色じゃなく虹色に屈折させる（シアン→白→マゼンタ）。
+    // オイルの膜を光がすっと舐めるような分光
     CAGradientLayer *sheen = [CAGradientLayer layer];
-    sheen.colors = @[(id)[NSColor colorWithWhite:1 alpha:0.0].CGColor,
-                     (id)[NSColor colorWithWhite:1 alpha:0.35].CGColor,
-                     (id)[NSColor colorWithWhite:1 alpha:0.0].CGColor];
+    sheen.colors = @[(id)[NSColor colorWithCalibratedRed:0.55 green:0.90 blue:0.98 alpha:0.0].CGColor,
+                     (id)[NSColor colorWithCalibratedRed:0.66 green:0.96 blue:1.00 alpha:0.42].CGColor,
+                     (id)[NSColor colorWithCalibratedRed:0.98 green:0.62 blue:0.96 alpha:0.34].CGColor,
+                     (id)[NSColor colorWithCalibratedRed:0.80 green:0.28 blue:0.72 alpha:0.0].CGColor];
+    sheen.locations = @[@0.0, @0.42, @0.66, @1.0];
     sheen.startPoint = CGPointMake(0, 0.5);
     sheen.endPoint = CGPointMake(1, 0.5);
     sheen.opacity = 0;
