@@ -212,12 +212,16 @@ static NSUInteger CountChars(NSString *s) {
 }
 
 - (void)tick {
-    // Electron系アプリ（Claudeデスクトップ等）はこれを立てないとAXツリーを公開しない
+    // Electron系（Claudeデスクトップ等）とChromium系（Chrome等）は、これらを
+    // 立てないとAXツリーを公開しない。ElectronはAXManualAccessibility、Chromeは
+    // AXEnhancedUserInterfaceで有効化される（版により片方だけ効くので両方立てる）。
+    // 有効化直後はツリー構築に数秒かかるため、最初の数回は選択が取れないことがある。
     NSRunningApplication *front = [NSWorkspace sharedWorkspace].frontmostApplication;
     if (front && front.processIdentifier != self.lastPid) {
         self.lastPid = front.processIdentifier;
         AXUIElementRef axApp = AXUIElementCreateApplication(self.lastPid);
         AXUIElementSetAttributeValue(axApp, CFSTR("AXManualAccessibility"), kCFBooleanTrue);
+        AXUIElementSetAttributeValue(axApp, CFSTR("AXEnhancedUserInterface"), kCFBooleanTrue);
         CFRelease(axApp);
     }
 
@@ -320,6 +324,27 @@ static NSUInteger CountChars(NSString *s) {
                 }
             }
             CFRelease(rangeRef);
+        }
+    }
+
+    // Webコンテンツ（Safari/Chrome/各種WebView等）向けフォールバック：
+    // WebKit系はAXSelectedText/AXSelectedTextRangeを公開せず、
+    // 「テキストマーカー」で選択を表す。AXSelectedTextMarkerRange（AXTextMarkerRange）を
+    // 取り、AXStringForTextMarkerRangeパラメータ付き属性で文字列に変換する。
+    // ※どちらも非公開だが安定したAXの慣習的キー。
+    if (!result) {
+        CFTypeRef markerRange = NULL;
+        if (AXUIElementCopyAttributeValue(el, CFSTR("AXSelectedTextMarkerRange"), &markerRange) == kAXErrorSuccess
+            && markerRange) {
+            CFTypeRef strRef = NULL;
+            if (AXUIElementCopyParameterizedAttributeValue(el, CFSTR("AXStringForTextMarkerRange"),
+                                                           markerRange, &strRef) == kAXErrorSuccess && strRef) {
+                if (CFGetTypeID(strRef) == CFStringGetTypeID() && CFStringGetLength(strRef) > 0) {
+                    result = [(__bridge NSString *)strRef copy];
+                }
+                CFRelease(strRef);
+            }
+            CFRelease(markerRange);
         }
     }
     CFRelease(el);
